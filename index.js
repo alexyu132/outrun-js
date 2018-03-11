@@ -43,6 +43,7 @@ function gameLoop() {
     zRate -= 0.25;
     zRate = Math.max(0, Math.min(90, zRate));
 
+    xRate = Math.max(-zRate*0.2, Math.min(zRate*0.2, xRate));
     xRate = Math.max(-6, Math.min(6, xRate));
 
     camX += xRate;
