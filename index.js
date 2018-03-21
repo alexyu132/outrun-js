@@ -1,4 +1,7 @@
-const FOV = 100;    // Field of view in degrees
+const FOV = 100,    // Field of view in degrees
+      ROAD_COLOR = "#121f24";
+      MARKING_COLOR = "#ffd8bb",
+      GROUND_COLOR = "#000000";
 
 var gameCanvas,     // Canvas element
     gameContext,    // Canvas context
@@ -45,7 +48,7 @@ function gameLoop() {
 
     xRate = clamp(clamp(xRate, -zRate * 0.3, zRate * 0.3), -10, 10);
 
-    camX += xRate - turnVal*1500 * zRate;
+    camX += xRate - turnVal * 1500 * zRate;
 
     camX = Math.max(-500, Math.min(500, camX));
 
@@ -58,15 +61,19 @@ function gameLoop() {
 **************************************************/
 function draw() {
     gameContext.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
-    gameContext.fillRect(0, 0, gameCanvas.width, projectY(-50, camZ + 8000))
+
+    gameContext.fillStyle = GROUND_COLOR;
+    
+    gameContext.fillRect(0, projectY(-50, camZ + 8000), gameCanvas.width, gameCanvas.height);
 
     for (z = 0; z < 7800; z += 400) {
-        drawLine3D(-10, -50, z, 10, -50, z);
-        drawLine3D(-10, -50, z + 150, 10, -50, z + 150);
-        drawLine3D(-10, -50, z, -10, -50, z + 150);
-        drawLine3D(10, -50, z, 10, -50, z + 150);
-        drawLine3D(-200, -50, z, -200, -50, z + 400);
-        drawLine3D(200, -50, z, 200, -50, z + 400);
+        // road
+        drawRoadPiece(0, -50, z, 800, 400, ROAD_COLOR);
+
+        //road markings
+        drawRoadPiece(-200, -50, z, 15, 120, MARKING_COLOR);
+        drawRoadPiece(0, -50, z, 15, 120, MARKING_COLOR);
+        drawRoadPiece(200, -50, z, 15, 120, MARKING_COLOR);
     }
 }
 
@@ -115,7 +122,7 @@ function clamp(num, min, max) {
 
 // Project point and return as normalized point
 function projectPoint(x, y, z) {
-    var outX = (x - camX + turnVal * (z - camZ)) * focal / (z - camZ),
+    var outX = (x - camX) * focal / (z - camZ),
         outY = -((y - camY) * focal / (z - camZ));
 
     outX += gameCanvas.width / 2;
@@ -124,12 +131,17 @@ function projectPoint(x, y, z) {
     return [outX, outY];
 }
 
-// Only get projected x coordinate
-function projectX(x, z) {
-    return (x - camX + turnVal * (z - camZ) * (z - camZ)) * focal / (z - camZ) + gameCanvas.width / 2;
+// Get projected x coordinate
+function projectXWithTurn(x, z) {
+    return (x - camX) * focal / (z - camZ) + gameCanvas.width / 2;
 }
 
-// Only get projected y coordinate
+// Get projected x coordinate, including turn distortion
+function projectXWithTurn(x, z) {
+    return (x - camX + turnVal * Math.pow(z - camZ, 2)) * focal / (z - camZ) + gameCanvas.width / 2;
+}
+
+// Get projected y coordinate
 function projectY(y, z) {
     return gameCanvas.height / 2 - ((y - camY) * focal / (z - camZ));// - 0.000001*(z-camZ)*(z-camZ));
 }
@@ -149,15 +161,45 @@ function drawLine3D(x1, y1, z1, x2, y2, z2) {
         z2 = camZ + 1;
     }
 
-    outX1 = projectX(x1, z1);
+    outX1 = projectXWithTurn(x1, z1);
     outY1 = projectY(y1, z1);
-    outX2 = projectX(x2, z2);
+    outX2 = projectXWithTurn(x2, z2);
     outY2 = projectY(y2, z2);
 
     gameContext.beginPath();
     gameContext.moveTo(Math.round(outX1), Math.round(outY1));
     gameContext.lineTo(Math.round(outX2), Math.round(outY2));
     gameContext.stroke();
+
+}
+
+function drawRoadPiece(x, y, z, width, length, color) {
+
+    if (z + length - camZ <= 0) {
+        return;
+    }
+
+    gameContext.fillStyle = color;
+
+    x1 = x - width / 2;
+    x2 = x + width / 2;
+
+    var zNew = z - camZ <= 0 ? camZ + 1: z;
+
+    outX1 = projectXWithTurn(x1, zNew);
+    outX2 = projectXWithTurn(x2, zNew);
+    outX3 = projectXWithTurn(x1, z + length);
+    outX4 = projectXWithTurn(x2, z + length);
+    outY1 = projectY(y, zNew);
+    outY2 = projectY(y, z + length);
+
+    gameContext.beginPath();
+    gameContext.moveTo(Math.round(outX1), Math.round(outY1));
+    gameContext.lineTo(Math.round(outX2), Math.round(outY1));
+    gameContext.lineTo(Math.round(outX4), Math.round(outY2));
+    gameContext.lineTo(Math.round(outX3), Math.round(outY2));
+    gameContext.closePath();
+    gameContext.fill();
 
 }
 
