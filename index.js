@@ -12,12 +12,12 @@ function init() {
 
     focal = gameCanvas.width / 2 / Math.tan(FOV * Math.PI / 360);
 
-    gameContext.fillStyle = "#880000";
+    gameContext.fillStyle = "#441122";
     gameContext.strokeStyle = "#990000";
 
     camX = 0;
     camY = 50;
-    camZ = -100;
+    camZ = 100;
 
     keys = new Keys();
 
@@ -28,25 +28,24 @@ function init() {
 ** GAME UPDATE LOOP
 **************************************************/
 
-var zRate = 0, xRate = 0;
+var zRate = 0, xRate = 0, turnVal = 0.00009;
 function gameLoop() {
     camZ = (camZ + zRate) % 400;
-
     if (keys.up) zRate += 0.6;
     if (keys.down) zRate -= 0.65;
     if (keys.left) xRate -= 0.5;
     if (keys.right) xRate += 0.5;
 
-    if(xRate > 0 && (keys.left && keys.right || !keys.right)) xRate -=0.5;
-    else if(xRate < 0 && (keys.left && keys.right || !keys.left)) xRate +=0.5;
+    if (xRate > 0 && (keys.left && keys.right || !keys.right)) xRate -= 0.5;
+    else if (xRate < 0 && (keys.left && keys.right || !keys.left)) xRate += 0.5;
 
     zRate -= 0.25;
-    zRate = Math.max(0, Math.min(90, zRate));
 
-    xRate = Math.max(-zRate*0.2, Math.min(zRate*0.2, xRate));
-    xRate = Math.max(-6, Math.min(6, xRate));
+    zRate = clamp(zRate, 0, 90);
 
-    camX += xRate;
+    xRate = clamp(clamp(xRate, -zRate * 0.3, zRate * 0.3), -10, 10);
+
+    camX += xRate - turnVal*1500 * zRate;
 
     camX = Math.max(-500, Math.min(500, camX));
 
@@ -59,18 +58,16 @@ function gameLoop() {
 **************************************************/
 function draw() {
     gameContext.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
-    gameContext.fillRect(0, 0, gameCanvas.width, projectY(-50, camZ + 10000))
+    gameContext.fillRect(0, 0, gameCanvas.width, projectY(-50, camZ + 8000))
 
     for (z = 0; z < 7800; z += 400) {
         drawLine3D(-10, -50, z, 10, -50, z);
         drawLine3D(-10, -50, z + 150, 10, -50, z + 150);
         drawLine3D(-10, -50, z, -10, -50, z + 150);
         drawLine3D(10, -50, z, 10, -50, z + 150);
+        drawLine3D(-200, -50, z, -200, -50, z + 400);
+        drawLine3D(200, -50, z, 200, -50, z + 400);
     }
-
-    drawLine3D(-200, -50, camZ + 1, -200, -50, camZ + 10000);
-    drawLine3D(200, -50, camZ + 1, 200, -50, camZ + 10000);
-    drawLine3D(200, -50, camZ + 10000, -200, -50, camZ + 10000);
 }
 
 /**************************************************
@@ -111,9 +108,14 @@ function onResize(e) {
 ** GAME HELPER FUNCTIONS
 **************************************************/
 
+// Makes sure a value lies inside min/max
+function clamp(num, min, max) {
+    return num <= min ? min : num >= max ? max : num;
+}
+
 // Project point and return as normalized point
 function projectPoint(x, y, z) {
-    var outX = (x - camX) * focal / (z - camZ),
+    var outX = (x - camX + turnVal * (z - camZ)) * focal / (z - camZ),
         outY = -((y - camY) * focal / (z - camZ));
 
     outX += gameCanvas.width / 2;
@@ -124,12 +126,12 @@ function projectPoint(x, y, z) {
 
 // Only get projected x coordinate
 function projectX(x, z) {
-    return (x - camX) * focal / (z - camZ) + gameCanvas.width / 2;
+    return (x - camX + turnVal * (z - camZ) * (z - camZ)) * focal / (z - camZ) + gameCanvas.width / 2;
 }
 
 // Only get projected y coordinate
 function projectY(y, z) {
-    return gameCanvas.height / 2 - ((y - camY) * focal / (z - camZ));
+    return gameCanvas.height / 2 - ((y - camY) * focal / (z - camZ));// - 0.000001*(z-camZ)*(z-camZ));
 }
 
 function drawLine3D(x1, y1, z1, x2, y2, z2) {
@@ -138,12 +140,12 @@ function drawLine3D(x1, y1, z1, x2, y2, z2) {
     }
 
     if (z1 - camZ <= 0) {
-        x1 = x1 * (z2 - camZ) / (z2 - z1) + x2;
-        y1 = y1 * (z2 - camZ) / (z2 - z1) + y2;
+        x1 += (camZ - z1) / (z2 - z1) * (x2 - x1);
+        y1 += (camZ - z1) / (z2 - z1) * (y2 - y1);
         z1 = camZ + 1;
     } else if (z2 - camZ <= 0) {
-        x2 = x2 * (z1 - camZ) / (z1 - z2) + x1;
-        y2 = y2 * (z1 - camZ) / (z1 - z2) + y1;
+        x2 += (camZ - z2) / (z1 - z2) * (x1 - x2);
+        y2 += (camZ - z2) / (z1 - z2) * (y1 - y2);
         z2 = camZ + 1;
     }
 
@@ -156,6 +158,7 @@ function drawLine3D(x1, y1, z1, x2, y2, z2) {
     gameContext.moveTo(Math.round(outX1), Math.round(outY1));
     gameContext.lineTo(Math.round(outX2), Math.round(outY2));
     gameContext.stroke();
+
 }
 
 /**************************************************
