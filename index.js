@@ -1,7 +1,7 @@
 const FOV = 100,    // Field of view in degrees
-      ROAD_COLOR = "#121f24";
-      MARKING_COLOR = "#ffd8bb",
-      GROUND_COLOR = "#000000";
+      ROAD_COLOR = "#999999";
+      MARKING_COLOR = "#ffd8FF",
+      GROUND_COLOR = "#dcd698";
 
 var gameCanvas,     // Canvas element
     gameContext,    // Canvas context
