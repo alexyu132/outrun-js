@@ -56,7 +56,9 @@ function gameLoop() {
 
     camX = clamp(camX, -900, 900);
 
-    if(camX )
+    if(camX < -400 || camX > 400) {
+        zRate -=0.0003 * Math.pow(zRate, 2);
+    }
 
     draw();
     //setTimeout(gameLoop, 1000);
@@ -77,7 +79,7 @@ function draw() {
     gameContext.fillStyle = ROAD_COLOR;
 
     // Pseudo curve variables
-    var turnSpeed = -(camZ % 400) / 400 * getTurnAtPos(camZ), turnOffset = 0;
+    var turnSpeed = -(camZ % 400) / 400 * getTurnAtPos(camZ - camZ % 400), turnOffset = 0;
     for (z = camZ - (camZ % 400); z < camZ + 7800 - camZ % 400; z += 400) {
         turnSpeed += getTurnAtPos(z);
         drawRoadPiece(0, -50, z, 800, 400, turnOffset, turnOffset + turnSpeed);
@@ -87,15 +89,14 @@ function draw() {
     // Draw lane markers
     gameContext.fillStyle = MARKING_COLOR;
 
-    turnSpeed = -(camZ % 400) / 400 * getTurnAtPos(camZ);
+    turnSpeed = -(camZ % 400) / 400 * getTurnAtPos(camZ - camZ % 400);
     turnOffset = 0;
     for (z = camZ - (camZ % 400); z < camZ + 7800 - camZ % 400; z += 400) {
         turnSpeed += getTurnAtPos(z);
-        // Using turnSpeed*0.3 for second offset since each marking is 30% of the full gap length
+        // Using turnSpeed*0.3 since each marking is 30%
         drawRoadPiece(-200, -50, z, 15, 120, turnOffset, turnOffset + turnSpeed*0.3);
         drawRoadPiece(0, -50, z, 15, 120, turnOffset, turnOffset + turnSpeed*0.3);
         drawRoadPiece(200, -50, z, 15, 120, turnOffset, turnOffset + turnSpeed*0.3);
-
         turnOffset += turnSpeed;
     }
 }
@@ -172,7 +173,7 @@ function projectY(y, z) {
 function getTurnAtPos(z) {
     var ind = Math.floor(z / 4000) % map.length,
         ind2 = ind + 1 > map.length - 1 ? 0 : ind + 1;
-    return (map[ind] * (z % 1000) + map[ind] * (1000 - (z % 1000))) / 1000;
+    return (map[ind2] * (z % 4000) + map[ind] * (4000 - (z % 4000))) / 4000;
 }
 
 function drawLine3D(x1, y1, z1, x2, y2, z2) {
