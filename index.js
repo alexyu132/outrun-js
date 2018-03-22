@@ -1,23 +1,24 @@
 const FOV = 100,    // Field of view in degrees
-      ROAD_COLOR = "#999999";
-      MARKING_COLOR = "#ffd8FF",
-      GROUND_COLOR = "#dcd698";
+    // Color constants
+    ROAD_COLOR = "#999999",
+    MARKING_COLOR = "#ffd8FF",
+    GROUND_COLOR = "#dcd698";
 
-var gameCanvas,     // Canvas element
-    gameContext,    // Canvas context
-    camX, camY, camZ,
-    focal,
-    keys;
+// Render/core variables
+var gameCanvas,       // Canvas element
+    gameContext,      // Canvas context
+    camX, camY, camZ, // Camera position
+    focal,            // Focal length
+    keys;             // Input handler
 
 function init() {
     gameCanvas = document.getElementById("gameCanvas");
     gameContext = gameCanvas.getContext("2d");
 
+    // Calculate focal length from FOV
     focal = gameCanvas.width / 2 / Math.tan(FOV * Math.PI / 360);
 
-    gameContext.fillStyle = "#441122";
-    gameContext.strokeStyle = "#990000";
-
+    // Init camera position
     camX = 0;
     camY = 50;
     camZ = 100;
@@ -30,14 +31,16 @@ function init() {
 /**************************************************
 ** GAME UPDATE LOOP
 **************************************************/
-
+// Game variables
 var zRate = 0, xRate = 0, turnVal = 0.00009;
 function gameLoop() {
-    camZ = (camZ + zRate) % 400;
+
+    camZ = (camZ + zRate);
+
     if (keys.up) zRate += 0.6;
     if (keys.down) zRate -= 0.65;
-    if (keys.left) xRate -= 0.5;
-    if (keys.right) xRate += 0.5;
+    if (keys.left) xRate -= 0.4;
+    if (keys.right) xRate += 0.4;
 
     if (xRate > 0 && (keys.left && keys.right || !keys.right)) xRate -= 0.5;
     else if (xRate < 0 && (keys.left && keys.right || !keys.left)) xRate += 0.5;
@@ -50,7 +53,7 @@ function gameLoop() {
 
     camX += xRate - turnVal * 1500 * zRate;
 
-    camX = Math.max(-500, Math.min(500, camX));
+    camX = clamp(camX, -900, 900);
 
     draw();
     requestAnimationFrame(gameLoop);
@@ -63,17 +66,21 @@ function draw() {
     gameContext.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
 
     gameContext.fillStyle = GROUND_COLOR;
-    
+
     gameContext.fillRect(0, projectY(-50, camZ + 8000), gameCanvas.width, gameCanvas.height);
 
-    for (z = 0; z < 7800; z += 400) {
-        // road
-        drawRoadPiece(0, -50, z, 800, 400, ROAD_COLOR);
+    // Draw road
+    gameContext.fillStyle = ROAD_COLOR;
+    for (z = camZ - (camZ % 400); z < camZ + 7800 - camZ % 400; z += 400) {
+        drawRoadPiece(0, -50, z, 800, 400);
+    }
 
-        //road markings
-        drawRoadPiece(-200, -50, z, 15, 120, MARKING_COLOR);
-        drawRoadPiece(0, -50, z, 15, 120, MARKING_COLOR);
-        drawRoadPiece(200, -50, z, 15, 120, MARKING_COLOR);
+    // Draw lane markers
+    gameContext.fillStyle = MARKING_COLOR;
+    for (z = camZ - (camZ % 400); z < camZ + 7800 - camZ % 400; z += 400) {
+        drawRoadPiece(-200, -50, z, 15, 120);
+        drawRoadPiece(0, -50, z, 15, 120);
+        drawRoadPiece(200, -50, z, 15, 120);
     }
 }
 
@@ -173,18 +180,16 @@ function drawLine3D(x1, y1, z1, x2, y2, z2) {
 
 }
 
-function drawRoadPiece(x, y, z, width, length, color) {
+function drawRoadPiece(x, y, z, width, length) {
 
     if (z + length - camZ <= 0) {
         return;
     }
 
-    gameContext.fillStyle = color;
-
     x1 = x - width / 2;
     x2 = x + width / 2;
 
-    var zNew = z - camZ <= 0 ? camZ + 1: z;
+    var zNew = z - camZ <= 0 ? camZ + 1 : z;
 
     outX1 = projectXWithTurn(x1, zNew);
     outX2 = projectXWithTurn(x2, zNew);
