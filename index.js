@@ -32,10 +32,15 @@ function init() {
 ** GAME UPDATE LOOP
 **************************************************/
 // Game variables
-var zRate = 0, xRate = 0, turnVal = 0.00009;
+const map = [0.00009, 0, -0.00009, 0, 0, -0.00003, -0.00003, 0];
+var zRate = 0, xRate = 0, turnVal = 0.0000;
 function gameLoop() {
 
-    camZ = (camZ + zRate);
+    var ind = Math.floor(camZ / 10000) % map.length,
+        ind2 = ind + 1 > map.length - 1 ? 0 : ind+1;
+    turnVal = (map[ind2] * (camZ % 10000) + map[ind] * (10000 - (camZ % 10000))) / 10000;
+    
+    camZ = camZ + zRate;
 
     if (keys.up) zRate += 0.6;
     if (keys.down) zRate -= 0.65;
