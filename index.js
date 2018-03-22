@@ -32,20 +32,16 @@ function init() {
 ** GAME UPDATE LOOP
 **************************************************/
 // Game variables
-const map = [0.00009, 0, -0.00009, 0, 0, -0.00003, -0.00003, 0];
-var zRate = 0, xRate = 0, turnVal = 0.0000;
+const map = [-10, -10, 20, 10, -5, 0, 0, 0, 50, 40, 30, 20, -50, -50, 0, 0, 0];//, 0, 0, -0.00003, -0.00003, 0];
+var zRate = 0, xRate = 0;
 function gameLoop() {
 
-    var ind = Math.floor(camZ / 10000) % map.length,
-        ind2 = ind + 1 > map.length - 1 ? 0 : ind+1;
-    turnVal = (map[ind2] * (camZ % 10000) + map[ind] * (10000 - (camZ % 10000))) / 10000;
-    
     camZ = camZ + zRate;
 
     if (keys.up) zRate += 0.6;
     if (keys.down) zRate -= 0.65;
-    if (keys.left) xRate -= 0.4;
-    if (keys.right) xRate += 0.4;
+    if (keys.left) xRate -= 0.45;
+    if (keys.right) xRate += 0.45;
 
     if (xRate > 0 && (keys.left && keys.right || !keys.right)) xRate -= 0.5;
     else if (xRate < 0 && (keys.left && keys.right || !keys.left)) xRate += 0.5;
@@ -54,13 +50,16 @@ function gameLoop() {
 
     zRate = clamp(zRate, 0, 90);
 
-    xRate = clamp(clamp(xRate, -zRate * 0.3, zRate * 0.3), -10, 10);
+    xRate = clamp(clamp(xRate, -zRate * 0.4, zRate * 0.4), -12, 12);
 
-    camX += xRate - turnVal * 1500 * zRate;
+    camX += xRate - getTurnAtPos(camZ) * 0.0045 * zRate;
 
     camX = clamp(camX, -900, 900);
 
+    if(camX )
+
     draw();
+    //setTimeout(gameLoop, 1000);
     requestAnimationFrame(gameLoop);
 }
 
@@ -76,16 +75,28 @@ function draw() {
 
     // Draw road
     gameContext.fillStyle = ROAD_COLOR;
+
+    // Pseudo curve variables
+    var turnSpeed = -(camZ % 400) / 400 * getTurnAtPos(camZ), turnOffset = 0;
     for (z = camZ - (camZ % 400); z < camZ + 7800 - camZ % 400; z += 400) {
-        drawRoadPiece(0, -50, z, 800, 400);
+        turnSpeed += getTurnAtPos(z);
+        drawRoadPiece(0, -50, z, 800, 400, turnOffset, turnOffset + turnSpeed);
+        turnOffset += turnSpeed;
     }
 
     // Draw lane markers
     gameContext.fillStyle = MARKING_COLOR;
+
+    turnSpeed = -(camZ % 400) / 400 * getTurnAtPos(camZ);
+    turnOffset = 0;
     for (z = camZ - (camZ % 400); z < camZ + 7800 - camZ % 400; z += 400) {
-        drawRoadPiece(-200, -50, z, 15, 120);
-        drawRoadPiece(0, -50, z, 15, 120);
-        drawRoadPiece(200, -50, z, 15, 120);
+        turnSpeed += getTurnAtPos(z);
+        // Using turnSpeed*0.3 for second offset since each marking is 30% of the full gap length
+        drawRoadPiece(-200, -50, z, 15, 120, turnOffset, turnOffset + turnSpeed*0.3);
+        drawRoadPiece(0, -50, z, 15, 120, turnOffset, turnOffset + turnSpeed*0.3);
+        drawRoadPiece(200, -50, z, 15, 120, turnOffset, turnOffset + turnSpeed*0.3);
+
+        turnOffset += turnSpeed;
     }
 }
 
@@ -144,18 +155,24 @@ function projectPoint(x, y, z) {
 }
 
 // Get projected x coordinate
-function projectXWithTurn(x, z) {
+function projectX(x, z) {
     return (x - camX) * focal / (z - camZ) + gameCanvas.width / 2;
 }
 
 // Get projected x coordinate, including turn distortion
-function projectXWithTurn(x, z) {
-    return (x - camX + turnVal * Math.pow(z - camZ, 2)) * focal / (z - camZ) + gameCanvas.width / 2;
+function projectXWithTurn(x, z, turn) {
+    return (x - camX + turn * Math.pow(z - camZ, 2)) * focal / (z - camZ) + gameCanvas.width / 2;
 }
 
 // Get projected y coordinate
 function projectY(y, z) {
     return gameCanvas.height / 2 - ((y - camY) * focal / (z - camZ));// - 0.000001*(z-camZ)*(z-camZ));
+}
+
+function getTurnAtPos(z) {
+    var ind = Math.floor(z / 4000) % map.length,
+        ind2 = ind + 1 > map.length - 1 ? 0 : ind + 1;
+    return (map[ind] * (z % 1000) + map[ind] * (1000 - (z % 1000))) / 1000;
 }
 
 function drawLine3D(x1, y1, z1, x2, y2, z2) {
@@ -173,9 +190,9 @@ function drawLine3D(x1, y1, z1, x2, y2, z2) {
         z2 = camZ + 1;
     }
 
-    outX1 = projectXWithTurn(x1, z1);
+    outX1 = projectX(x1, z1);
     outY1 = projectY(y1, z1);
-    outX2 = projectXWithTurn(x2, z2);
+    outX2 = projectX(x2, z2);
     outY2 = projectY(y2, z2);
 
     gameContext.beginPath();
@@ -185,7 +202,7 @@ function drawLine3D(x1, y1, z1, x2, y2, z2) {
 
 }
 
-function drawRoadPiece(x, y, z, width, length) {
+function drawRoadPiece(x, y, z, width, length, startTurn, endTurn) {
 
     if (z + length - camZ <= 0) {
         return;
@@ -196,10 +213,10 @@ function drawRoadPiece(x, y, z, width, length) {
 
     var zNew = z - camZ <= 0 ? camZ + 1 : z;
 
-    outX1 = projectXWithTurn(x1, zNew);
-    outX2 = projectXWithTurn(x2, zNew);
-    outX3 = projectXWithTurn(x1, z + length);
-    outX4 = projectXWithTurn(x2, z + length);
+    outX1 = projectX(x1 + startTurn, zNew);
+    outX2 = projectX(x2 + startTurn, zNew);
+    outX3 = projectX(x1 + endTurn, z + length);
+    outX4 = projectX(x2 + endTurn, z + length);
     outY1 = projectY(y, zNew);
     outY2 = projectY(y, z + length);
 
