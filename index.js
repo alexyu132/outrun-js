@@ -13,7 +13,7 @@ const FOV = 100,    // Field of view in degrees
     RENDER_DIST = 7500,
     MAP_INTERVAL = 4000,    // Distance between each turn value
     MAP = [-10, -10, 20, 10, -5, 0, 0, 0, 50, 40, 30, 20, -50, -50, 0, 0, 0],
-    HILL_MAP = [0, 300, 300, 300, 1000, -300, 0, 0, 0];
+    HILL_MAP = [0, 300, 300, 300, 1000, -300, 0, 0];
 
 // Render/core variables
 var gameCanvas,       // Canvas element
