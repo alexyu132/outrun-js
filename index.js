@@ -1,9 +1,10 @@
 // Game constants
 const FOV = 100,    // Field of view in degrees
+    PI = 3.14159,
     // Color constants
     ROAD_COLOR = "#999999",
     MARKING_COLOR = "#ffd8FF",
-    GROUND_COLOR = "#dcd698",
+    SKY_COLOR = "#1e90ff",
     // Dimension/layout constants
     CAM_HEIGHT = 90,
     ROAD_WIDTH = 800,
@@ -83,13 +84,8 @@ function gameLoop() {
 function draw() {
     gameContext.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
 
-    // Draw ground
-    gameContext.fillStyle = GROUND_COLOR;
-    gameContext.fillRect(0, projectY(getHeightAtPos( camZ + RENDER_DIST - ROAD_SECTION_LENGTH), camZ + RENDER_DIST - ROAD_SECTION_LENGTH), gameCanvas.width, gameCanvas.height);
-
     // Draw road
     gameContext.fillStyle = ROAD_COLOR;
-
     // Pseudo curve variables
     var topY = gameCanvas.height;
     var turnSpeed = -(camZ % ROAD_SECTION_LENGTH) / ROAD_SECTION_LENGTH * getTurnAtPos(camZ - camZ % ROAD_SECTION_LENGTH), turnOffset = 0;
@@ -106,11 +102,15 @@ function draw() {
     turnOffset = 0;
     for (z = camZ - (camZ % ROAD_SECTION_LENGTH); z < camZ + RENDER_DIST - camZ % ROAD_SECTION_LENGTH; z += ROAD_SECTION_LENGTH) {
         turnSpeed += getTurnAtPos(z);
-        topY = drawRoadSection(-ROAD_WIDTH/4, z, topY, 15, MARKING_LENGTH, turnOffset, turnOffset + turnSpeed * MARKING_LENGTH / ROAD_SECTION_LENGTH);
+        topY = drawRoadSection(-ROAD_WIDTH / 4, z, topY, 15, MARKING_LENGTH, turnOffset, turnOffset + turnSpeed * MARKING_LENGTH / ROAD_SECTION_LENGTH);
         drawRoadSection(0, z, topY, 15, MARKING_LENGTH, turnOffset, turnOffset + turnSpeed * MARKING_LENGTH / ROAD_SECTION_LENGTH);
-        drawRoadSection(ROAD_WIDTH/4, z, topY, 15, MARKING_LENGTH, turnOffset, turnOffset + turnSpeed * MARKING_LENGTH / ROAD_SECTION_LENGTH);
+        drawRoadSection(ROAD_WIDTH / 4, z, topY, 15, MARKING_LENGTH, turnOffset, turnOffset + turnSpeed * MARKING_LENGTH / ROAD_SECTION_LENGTH);
         turnOffset += turnSpeed;
     }
+
+    // Draw sky
+    gameContext.fillStyle = SKY_COLOR;
+    gameContext.fillRect(0, 0, gameCanvas.width, topY + 1);
 }
 
 /**************************************************
@@ -178,16 +178,19 @@ function projectY(y, z) {
     return gameCanvas.height / 2 - ((y - camY) * focal / (z - camZ));// - 0.000001*(z-camZ)*(z-camZ));
 }
 
+// Get turn value at z position
 function getTurnAtPos(z) {
     var ind = Math.floor(z / MAP_INTERVAL) % MAP.length,
         ind2 = ind + 1 > MAP.length - 1 ? 0 : ind + 1;
     return (MAP[ind2] * (z % MAP_INTERVAL) + MAP[ind] * (MAP_INTERVAL - (z % MAP_INTERVAL))) / MAP_INTERVAL;
 }
 
+// Get height at z position
 function getHeightAtPos(z) {
     var ind = Math.floor(z / MAP_INTERVAL) % HILL_MAP.length,
-        ind2 = ind + 1 > HILL_MAP.length - 1 ? 0 : ind + 1;
-    return (HILL_MAP[ind2] * (z % MAP_INTERVAL) + HILL_MAP[ind] * (MAP_INTERVAL - (z % MAP_INTERVAL))) / MAP_INTERVAL;
+        ind2 = ind + 1 > HILL_MAP.length - 1 ? 0 : ind + 1,
+        percent = (1 - Math.cos(PI * (z % MAP_INTERVAL) / MAP_INTERVAL)) / 2; // Cosine interpolation
+    return HILL_MAP[ind2] * percent + HILL_MAP[ind] * (1 - percent);
 }
 
 function drawLine3D(x1, y1, z1, x2, y2, z2) {
@@ -231,12 +234,22 @@ function drawRoadSection(x, z, topY, width, length, startTurn, endTurn) {
 
     outY1 = projectY(getHeightAtPos(zNew), zNew);
     outY2 = projectY(getHeightAtPos(z + length), z + length);
-    if(outY2 >= outY1 || outY2 > topY) return topY;
+    if (outY2 >= outY1 || outY2 > topY) return topY;
 
     outX1 = projectX(x1 + startTurn, zNew);
     outX2 = projectX(x2 + startTurn, zNew);
     outX3 = projectX(x1 + endTurn, z + length);
     outX4 = projectX(x2 + endTurn, z + length);
+
+    // Reduce drawing outside window
+    if(outX1 < 0 && outX3 < 0) {
+        outX1 = 0;
+        outX3 = 0;
+    }
+    if(outX2 > gameCanvas.width && outX4 > gameCanvas.width) {
+       outX2 = gameCanvas.width;
+       outX4 = gameCanvas.width;
+    }
 
     gameContext.beginPath();
     gameContext.moveTo(Math.round(outX1), Math.round(outY1));
