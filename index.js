@@ -13,8 +13,7 @@ const FOV = 100,    // Field of view in degrees
     RENDER_DIST = 7500,
     MAP_INTERVAL = 4000,    // Distance between each turn value
     MAP = [-10, -10, 20, 10, -5, 0, 0, 0, 50, 40, 30, 20, -50, -50, 0, 0, 0],
-    //MAP = [0,0,0];
-    HILL_MAP = [100, -100];
+    HILL_MAP = [0, 300, 300, 300, 1000, -300, 0, 0, 0];
 
 // Render/core variables
 var gameCanvas,       // Canvas element
@@ -102,9 +101,9 @@ function draw() {
     turnOffset = 0;
     for (z = camZ - (camZ % ROAD_SECTION_LENGTH); z < camZ + RENDER_DIST - camZ % ROAD_SECTION_LENGTH; z += ROAD_SECTION_LENGTH) {
         turnSpeed += getTurnAtPos(z);
-        topY = drawRoadSection(-ROAD_WIDTH / 4, z, topY, 15, MARKING_LENGTH, turnOffset, turnOffset + turnSpeed * MARKING_LENGTH / ROAD_SECTION_LENGTH);
+        drawRoadSection(-ROAD_WIDTH / 4, z, topY, 15, MARKING_LENGTH, turnOffset, turnOffset + turnSpeed * MARKING_LENGTH / ROAD_SECTION_LENGTH);
         drawRoadSection(0, z, topY, 15, MARKING_LENGTH, turnOffset, turnOffset + turnSpeed * MARKING_LENGTH / ROAD_SECTION_LENGTH);
-        drawRoadSection(ROAD_WIDTH / 4, z, topY, 15, MARKING_LENGTH, turnOffset, turnOffset + turnSpeed * MARKING_LENGTH / ROAD_SECTION_LENGTH);
+        topY = drawRoadSection(ROAD_WIDTH / 4, z, topY, 15, MARKING_LENGTH, turnOffset, turnOffset + turnSpeed * MARKING_LENGTH / ROAD_SECTION_LENGTH);
         turnOffset += turnSpeed;
     }
 
@@ -242,13 +241,13 @@ function drawRoadSection(x, z, topY, width, length, startTurn, endTurn) {
     outX4 = projectX(x2 + endTurn, z + length);
 
     // Reduce drawing outside window
-    if(outX1 < 0 && outX3 < 0) {
+    if (outX1 < 0 && outX3 < 0) {
         outX1 = 0;
         outX3 = 0;
     }
-    if(outX2 > gameCanvas.width && outX4 > gameCanvas.width) {
-       outX2 = gameCanvas.width;
-       outX4 = gameCanvas.width;
+    if (outX2 > gameCanvas.width && outX4 > gameCanvas.width) {
+        outX2 = gameCanvas.width;
+        outX4 = gameCanvas.width;
     }
 
     gameContext.beginPath();
@@ -259,7 +258,8 @@ function drawRoadSection(x, z, topY, width, length, startTurn, endTurn) {
     gameContext.closePath();
     gameContext.fill();
 
-    return outY2;
+    // Return top Y of section end
+    return projectY(getHeightAtPos(z + ROAD_SECTION_LENGTH), z + ROAD_SECTION_LENGTH);
 }
 
 /**************************************************
