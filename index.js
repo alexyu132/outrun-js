@@ -11,7 +11,9 @@ const FOV = 100,    // Field of view in degrees
     MARKING_LENGTH = 130,
     RENDER_DIST = 7500,
     MAP_INTERVAL = 4000,    // Distance between each turn value
-    MAP = [-10, -10, 20, 10, -5, 0, 0, 0, 50, 40, 30, 20, -50, -50, 0, 0, 0];
+    MAP = [-10, -10, 20, 10, -5, 0, 0, 0, 50, 40, 30, 20, -50, -50, 0, 0, 0],
+    //MAP = [0,0,0];
+    HILL_MAP = [100, -100];
 
 // Render/core variables
 var gameCanvas,       // Canvas element
@@ -65,6 +67,7 @@ function gameLoop() {
     camX += xRate - getTurnAtPos(camZ) * 0.0045 * zRate;
 
     camX = clamp(camX, -ROAD_WIDTH, ROAD_WIDTH);
+    camY = CAM_HEIGHT + getHeightAtPos(camZ);
 
     if (camX < -ROAD_WIDTH / 2 || camX > ROAD_WIDTH / 2) {
         zRate -= 0.0003 * Math.pow(zRate, 2);
@@ -82,29 +85,30 @@ function draw() {
 
     // Draw ground
     gameContext.fillStyle = GROUND_COLOR;
-    gameContext.fillRect(0, projectY(0, camZ + RENDER_DIST - ROAD_SECTION_LENGTH), gameCanvas.width, gameCanvas.height);
+    gameContext.fillRect(0, projectY(getHeightAtPos( camZ + RENDER_DIST - ROAD_SECTION_LENGTH), camZ + RENDER_DIST - ROAD_SECTION_LENGTH), gameCanvas.width, gameCanvas.height);
 
     // Draw road
     gameContext.fillStyle = ROAD_COLOR;
 
     // Pseudo curve variables
+    var topY = gameCanvas.height;
     var turnSpeed = -(camZ % ROAD_SECTION_LENGTH) / ROAD_SECTION_LENGTH * getTurnAtPos(camZ - camZ % ROAD_SECTION_LENGTH), turnOffset = 0;
     for (z = camZ - (camZ % ROAD_SECTION_LENGTH); z < camZ + RENDER_DIST - camZ % ROAD_SECTION_LENGTH; z += ROAD_SECTION_LENGTH) {
         turnSpeed += getTurnAtPos(z);
-        drawRoadPiece(0, 0, z, ROAD_WIDTH, ROAD_SECTION_LENGTH, turnOffset, turnOffset + turnSpeed);
+        topY = drawRoadSection(0, z, topY, ROAD_WIDTH, ROAD_SECTION_LENGTH, turnOffset, turnOffset + turnSpeed);
         turnOffset += turnSpeed;
     }
 
     // Draw lane markers
     gameContext.fillStyle = MARKING_COLOR;
-
+    topY = gameCanvas.height;
     turnSpeed = -(camZ % ROAD_SECTION_LENGTH) / ROAD_SECTION_LENGTH * getTurnAtPos(camZ - camZ % ROAD_SECTION_LENGTH);
     turnOffset = 0;
     for (z = camZ - (camZ % ROAD_SECTION_LENGTH); z < camZ + RENDER_DIST - camZ % ROAD_SECTION_LENGTH; z += ROAD_SECTION_LENGTH) {
         turnSpeed += getTurnAtPos(z);
-        drawRoadPiece(-ROAD_WIDTH/4, 0, z, 15, MARKING_LENGTH, turnOffset, turnOffset + turnSpeed * MARKING_LENGTH / ROAD_SECTION_LENGTH);
-        drawRoadPiece(0, 0, z, 15, MARKING_LENGTH, turnOffset, turnOffset + turnSpeed * MARKING_LENGTH / ROAD_SECTION_LENGTH);
-        drawRoadPiece(ROAD_WIDTH/4, 0, z, 15, MARKING_LENGTH, turnOffset, turnOffset + turnSpeed * MARKING_LENGTH / ROAD_SECTION_LENGTH);
+        topY = drawRoadSection(-ROAD_WIDTH/4, z, topY, 15, MARKING_LENGTH, turnOffset, turnOffset + turnSpeed * MARKING_LENGTH / ROAD_SECTION_LENGTH);
+        drawRoadSection(0, z, topY, 15, MARKING_LENGTH, turnOffset, turnOffset + turnSpeed * MARKING_LENGTH / ROAD_SECTION_LENGTH);
+        drawRoadSection(ROAD_WIDTH/4, z, topY, 15, MARKING_LENGTH, turnOffset, turnOffset + turnSpeed * MARKING_LENGTH / ROAD_SECTION_LENGTH);
         turnOffset += turnSpeed;
     }
 }
@@ -180,6 +184,12 @@ function getTurnAtPos(z) {
     return (MAP[ind2] * (z % MAP_INTERVAL) + MAP[ind] * (MAP_INTERVAL - (z % MAP_INTERVAL))) / MAP_INTERVAL;
 }
 
+function getHeightAtPos(z) {
+    var ind = Math.floor(z / MAP_INTERVAL) % HILL_MAP.length,
+        ind2 = ind + 1 > HILL_MAP.length - 1 ? 0 : ind + 1;
+    return (HILL_MAP[ind2] * (z % MAP_INTERVAL) + HILL_MAP[ind] * (MAP_INTERVAL - (z % MAP_INTERVAL))) / MAP_INTERVAL;
+}
+
 function drawLine3D(x1, y1, z1, x2, y2, z2) {
     if (z1 - camZ <= 0 && z2 - camZ <= 0) {
         return;
@@ -207,7 +217,8 @@ function drawLine3D(x1, y1, z1, x2, y2, z2) {
 
 }
 
-function drawRoadPiece(x, y, z, width, length, startTurn, endTurn) {
+// Draws section of road and returns highest y value drawn to
+function drawRoadSection(x, z, topY, width, length, startTurn, endTurn) {
 
     if (z + length - camZ <= 0) {
         return;
@@ -218,12 +229,14 @@ function drawRoadPiece(x, y, z, width, length, startTurn, endTurn) {
 
     var zNew = z - camZ <= 0 ? camZ + 1 : z;
 
+    outY1 = projectY(getHeightAtPos(zNew), zNew);
+    outY2 = projectY(getHeightAtPos(z + length), z + length);
+    if(outY2 >= outY1 || outY2 > topY) return topY;
+
     outX1 = projectX(x1 + startTurn, zNew);
     outX2 = projectX(x2 + startTurn, zNew);
     outX3 = projectX(x1 + endTurn, z + length);
     outX4 = projectX(x2 + endTurn, z + length);
-    outY1 = projectY(y, zNew);
-    outY2 = projectY(y, z + length);
 
     gameContext.beginPath();
     gameContext.moveTo(Math.round(outX1), Math.round(outY1));
@@ -233,6 +246,7 @@ function drawRoadPiece(x, y, z, width, length, startTurn, endTurn) {
     gameContext.closePath();
     gameContext.fill();
 
+    return outY2;
 }
 
 /**************************************************
