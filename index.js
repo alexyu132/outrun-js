@@ -1,8 +1,17 @@
+// Game constants
 const FOV = 100,    // Field of view in degrees
     // Color constants
     ROAD_COLOR = "#999999",
     MARKING_COLOR = "#ffd8FF",
-    GROUND_COLOR = "#dcd698";
+    GROUND_COLOR = "#dcd698",
+    // Dimension/layout constants
+    CAM_HEIGHT = 90,
+    ROAD_WIDTH = 800,
+    ROAD_SECTION_LENGTH = 400,
+    MARKING_LENGTH = 130,
+    RENDER_DIST = 7500,
+    MAP_INTERVAL = 4000,    // Distance between each turn value
+    MAP = [-10, -10, 20, 10, -5, 0, 0, 0, 50, 40, 30, 20, -50, -50, 0, 0, 0];
 
 // Render/core variables
 var gameCanvas,       // Canvas element
@@ -20,7 +29,7 @@ function init() {
 
     // Init camera position
     camX = 0;
-    camY = 50;
+    camY = CAM_HEIGHT;
     camZ = 100;
 
     keys = new Keys();
@@ -32,7 +41,6 @@ function init() {
 ** GAME UPDATE LOOP
 **************************************************/
 // Game variables
-const map = [-10, -10, 20, 10, -5, 0, 0, 0, 50, 40, 30, 20, -50, -50, 0, 0, 0];//, 0, 0, -0.00003, -0.00003, 0];
 var zRate = 0, xRate = 0;
 function gameLoop() {
 
@@ -43,25 +51,26 @@ function gameLoop() {
     if (keys.left) xRate -= 0.45;
     if (keys.right) xRate += 0.45;
 
-    if (xRate > 0 && (keys.left && keys.right || !keys.right)) xRate -= 0.5;
-    else if (xRate < 0 && (keys.left && keys.right || !keys.left)) xRate += 0.5;
+    if (xRate > 0 && (keys.left && keys.right || !keys.right)) {
+        xRate -= 0.5;
+    }
+    else if (xRate < 0 && (keys.left && keys.right || !keys.left)) {
+        xRate += 0.5;
+    }
 
-    zRate -= 0.25;
-
-    zRate = clamp(zRate, 0, 90);
+    zRate = clamp(zRate - 0.25, 0, 90);
 
     xRate = clamp(clamp(xRate, -zRate * 0.4, zRate * 0.4), -12, 12);
 
     camX += xRate - getTurnAtPos(camZ) * 0.0045 * zRate;
 
-    camX = clamp(camX, -900, 900);
+    camX = clamp(camX, -ROAD_WIDTH, ROAD_WIDTH);
 
-    if(camX < -400 || camX > 400) {
-        zRate -=0.0003 * Math.pow(zRate, 2);
+    if (camX < -ROAD_WIDTH / 2 || camX > ROAD_WIDTH / 2) {
+        zRate -= 0.0003 * Math.pow(zRate, 2);
     }
 
     draw();
-    //setTimeout(gameLoop, 1000);
     requestAnimationFrame(gameLoop);
 }
 
@@ -71,32 +80,31 @@ function gameLoop() {
 function draw() {
     gameContext.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
 
+    // Draw ground
     gameContext.fillStyle = GROUND_COLOR;
-
-    gameContext.fillRect(0, projectY(-50, camZ + 8000), gameCanvas.width, gameCanvas.height);
+    gameContext.fillRect(0, projectY(0, camZ + RENDER_DIST - ROAD_SECTION_LENGTH), gameCanvas.width, gameCanvas.height);
 
     // Draw road
     gameContext.fillStyle = ROAD_COLOR;
 
     // Pseudo curve variables
-    var turnSpeed = -(camZ % 400) / 400 * getTurnAtPos(camZ - camZ % 400), turnOffset = 0;
-    for (z = camZ - (camZ % 400); z < camZ + 7800 - camZ % 400; z += 400) {
+    var turnSpeed = -(camZ % ROAD_SECTION_LENGTH) / ROAD_SECTION_LENGTH * getTurnAtPos(camZ - camZ % ROAD_SECTION_LENGTH), turnOffset = 0;
+    for (z = camZ - (camZ % ROAD_SECTION_LENGTH); z < camZ + RENDER_DIST - camZ % ROAD_SECTION_LENGTH; z += ROAD_SECTION_LENGTH) {
         turnSpeed += getTurnAtPos(z);
-        drawRoadPiece(0, -50, z, 800, 400, turnOffset, turnOffset + turnSpeed);
+        drawRoadPiece(0, 0, z, ROAD_WIDTH, ROAD_SECTION_LENGTH, turnOffset, turnOffset + turnSpeed);
         turnOffset += turnSpeed;
     }
 
     // Draw lane markers
     gameContext.fillStyle = MARKING_COLOR;
 
-    turnSpeed = -(camZ % 400) / 400 * getTurnAtPos(camZ - camZ % 400);
+    turnSpeed = -(camZ % ROAD_SECTION_LENGTH) / ROAD_SECTION_LENGTH * getTurnAtPos(camZ - camZ % ROAD_SECTION_LENGTH);
     turnOffset = 0;
-    for (z = camZ - (camZ % 400); z < camZ + 7800 - camZ % 400; z += 400) {
+    for (z = camZ - (camZ % ROAD_SECTION_LENGTH); z < camZ + RENDER_DIST - camZ % ROAD_SECTION_LENGTH; z += ROAD_SECTION_LENGTH) {
         turnSpeed += getTurnAtPos(z);
-        // Using turnSpeed*0.3 since each marking is 30%
-        drawRoadPiece(-200, -50, z, 15, 120, turnOffset, turnOffset + turnSpeed*0.3);
-        drawRoadPiece(0, -50, z, 15, 120, turnOffset, turnOffset + turnSpeed*0.3);
-        drawRoadPiece(200, -50, z, 15, 120, turnOffset, turnOffset + turnSpeed*0.3);
+        drawRoadPiece(-ROAD_WIDTH/4, 0, z, 15, MARKING_LENGTH, turnOffset, turnOffset + turnSpeed * MARKING_LENGTH / ROAD_SECTION_LENGTH);
+        drawRoadPiece(0, 0, z, 15, MARKING_LENGTH, turnOffset, turnOffset + turnSpeed * MARKING_LENGTH / ROAD_SECTION_LENGTH);
+        drawRoadPiece(ROAD_WIDTH/4, 0, z, 15, MARKING_LENGTH, turnOffset, turnOffset + turnSpeed * MARKING_LENGTH / ROAD_SECTION_LENGTH);
         turnOffset += turnSpeed;
     }
 }
@@ -125,14 +133,10 @@ function onKeyUp(e) {
 
 // Browser window resize
 function onResize(e) {
-    // Maximize the canvas
-    if (window.innerWidth / window.innerHeight < 16 / 9) {
-        gameCanvas.style.width = window.innerWidth + 'px';
-        gameCanvas.style.height = window.innerWidth * 9 / 16 + 'px';
-    } else {
-        gameCanvas.style.width = window.innerHeight * 16 / 9 + 'px';
-        gameCanvas.style.height = window.innerHeight + 'px';
-    }
+    // Maximize the canvas, keeping 16:9 ratio
+    gameCanvas.width = window.innerWidth;
+    gameCanvas.height = window.innerHeight;
+    focal = gameCanvas.width / 2 / Math.tan(FOV * Math.PI / 360);
 };
 
 /**************************************************
@@ -171,9 +175,9 @@ function projectY(y, z) {
 }
 
 function getTurnAtPos(z) {
-    var ind = Math.floor(z / 4000) % map.length,
-        ind2 = ind + 1 > map.length - 1 ? 0 : ind + 1;
-    return (map[ind2] * (z % 4000) + map[ind] * (4000 - (z % 4000))) / 4000;
+    var ind = Math.floor(z / MAP_INTERVAL) % MAP.length,
+        ind2 = ind + 1 > MAP.length - 1 ? 0 : ind + 1;
+    return (MAP[ind2] * (z % MAP_INTERVAL) + MAP[ind] * (MAP_INTERVAL - (z % MAP_INTERVAL))) / MAP_INTERVAL;
 }
 
 function drawLine3D(x1, y1, z1, x2, y2, z2) {
