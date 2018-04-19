@@ -1,4 +1,4 @@
-// Game constants
+ // Game constants
 const FOV = 100,    // Field of view in degrees
     PI = 3.14159,
     // Color constants
@@ -64,7 +64,7 @@ function gameLoop() {
 
     xRate = clamp(clamp(xRate, -zRate * 0.4, zRate * 0.4), -12, 12);
 
-    camX += xRate - getTurnAtPos(camZ) * 0.0045 * zRate;
+    camX += xRate - getTurnAtPos(camZ) * 0.005 * zRate;
 
     camX = clamp(camX, -ROAD_WIDTH, ROAD_WIDTH);
     camY = CAM_HEIGHT + getHeightAtPos(camZ);
