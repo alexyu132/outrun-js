@@ -1,2 +1,4 @@
 # outrun-js
-retro raster racing game
+A retro raster-rendered racing game demo.
+
+View at [https://alexyu132.github.io/outrun-js/](https://alexyu132.github.io/outrun-js/).
